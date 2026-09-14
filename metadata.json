@@ -1,0 +1,6 @@
+{
+  "name": "AnkiDroid Flashcard Generator",
+  "description": "Analyze photos, handwritten notes, PDFs, or text and convert them into AnkiDroid-ready flashcard decks with custom delimiters, cloze deletions, and step-by-step import instructions.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
