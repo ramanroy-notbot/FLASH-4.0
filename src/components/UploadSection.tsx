@@ -11,9 +11,11 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   BookOpen,
-  GraduationCap
+  GraduationCap,
+  ShieldCheck,
+  Cpu
 } from 'lucide-react';
-import { CardType, DelimiterType, MbbsSubject } from '../types';
+import { CardType, DelimiterType, MbbsSubject, AiModelPreference, GenerationProgress } from '../types';
 import { DELIMITER_MAP } from '../utils/ankiExport';
 import { SAMPLE_DECKS } from '../data/sampleDecks';
 import { MBBS_SUBJECTS, getMbbsSubjectInfo } from '../utils/mbbsSubjects';
@@ -30,10 +32,12 @@ interface UploadSectionProps {
     deckName?: string;
     customInstructions?: string;
     subject?: MbbsSubject;
+    preferredModel?: AiModelPreference;
   }) => Promise<void>;
   isLoading: boolean;
   onLoadSample: (sampleId: string) => void;
   initialSubject?: MbbsSubject;
+  progress?: GenerationProgress | null;
 }
 
 export const UploadSection: React.FC<UploadSectionProps> = ({
@@ -41,9 +45,11 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
   isLoading,
   onLoadSample,
   initialSubject = 'Pharmacology',
+  progress,
 }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'text'>('upload');
   const [subject, setSubject] = useState<MbbsSubject>(initialSubject);
+  const [preferredModel, setPreferredModel] = useState<AiModelPreference>('auto');
 
   useEffect(() => {
     if (initialSubject) {
@@ -147,51 +153,54 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
       deckName: deckName.trim(),
       customInstructions: customInstructions.trim(),
       subject,
+      preferredModel,
     });
   };
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      {/* Tab Switcher */}
-      <div className="border-b border-slate-200 bg-slate-50/70 px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex space-x-1">
+      {/* Tab Switcher & Quick Samples */}
+      <div className="border-b border-slate-200 bg-slate-50/70 px-3 sm:px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 w-full">
+        <div className="grid grid-cols-2 gap-1.5 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setActiveTab('upload')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all text-center ${
               activeTab === 'upload'
-                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                ? 'bg-white text-blue-700 shadow-xs border border-slate-200 font-bold'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
-            <span>Photo / Handwritten / PDF</span>
+            <ImageIcon className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="sm:hidden">Photo / PDF</span>
+            <span className="hidden sm:inline">Photo / Handwritten / PDF</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('text')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all text-center ${
               activeTab === 'text'
-                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                ? 'bg-white text-blue-700 shadow-xs border border-slate-200 font-bold'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <FileText className="w-3.5 h-3.5 text-blue-600" />
-            <span>Paste Text or Notes</span>
+            <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="sm:hidden">Text Notes</span>
+            <span className="hidden sm:inline">Paste Text or Notes</span>
           </button>
         </div>
 
         {/* Quick Sample Deck Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto py-1 w-full sm:w-auto max-w-full min-w-0">
           <span className="text-[11px] font-medium text-slate-500 shrink-0">
-            Quick samples:
+            Samples:
           </span>
           {SAMPLE_DECKS.map((sample) => (
             <button
               key={sample.id}
               type="button"
               onClick={() => onLoadSample(sample.id)}
-              className="text-[11px] px-2 py-1 rounded-md bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 transition-colors whitespace-nowrap shadow-2xs"
+              className="text-[11px] px-2.5 py-1 rounded-md bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 transition-colors whitespace-nowrap shadow-2xs shrink-0 font-medium"
             >
               {sample.title.split('(')[0].trim()}
             </button>
@@ -457,6 +466,44 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
                 Auto-saved under {subject}
               </span>
             </div>
+
+            {/* 6. Multi-AI Engine & High-Demand Guard */}
+            <div className="col-span-1 sm:col-span-2 bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-emerald-50/40 border border-blue-200/90 rounded-2xl p-3.5 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                  <Cpu className="w-3.5 h-3.5 text-blue-600" />
+                  <span>AI Engine &amp; High-Demand Protection:</span>
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                    3 AI Models in Pool
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full">
+                    <ShieldCheck className="w-3 h-3 text-blue-600" />
+                    Auto-Failover Active
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                <div className="sm:col-span-6">
+                  <select
+                    value={preferredModel}
+                    onChange={(e) => setPreferredModel(e.target.value as AiModelPreference)}
+                    className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-2xs"
+                  >
+                    <option value="auto">⚡ Auto-Cascade (All Available Models - Recommended ⭐)</option>
+                    <option value="gemini-3.8-flash">Gemini 3.8 Flash (Flagship Speed &amp; Multimodal)</option>
+                    <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Ultra-Fast / High-Availability)</option>
+                    <option value="gemini-flash-latest">Gemini Flash Latest (Production Channel)</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-6 text-[11px] text-slate-600 leading-snug">
+                  If the primary model is busy or hits <span className="font-semibold text-slate-800">"model is in high demand" / 503</span>, the engine instantly shifts to standby AI models without failing your generation.
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Optional Focus Directives */}
@@ -474,26 +521,63 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
           </div>
         </div>
 
+        {/* Live Generation Progress Card */}
+        {isLoading && progress && (
+          <div className={`p-3.5 rounded-2xl border transition-all animate-in fade-in ${
+            progress.stage === 'fallback' 
+              ? 'bg-amber-50/90 border-amber-300 text-amber-950 shadow-xs' 
+              : 'bg-blue-50/90 border-blue-200 text-blue-950 shadow-xs'
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 shrink-0">
+                <div className={`w-4 h-4 border-2 rounded-full animate-spin ${
+                  progress.stage === 'fallback'
+                    ? 'border-amber-600 border-t-transparent'
+                    : 'border-blue-600 border-t-transparent'
+                }`} />
+              </div>
+              <div className="space-y-1 flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold">
+                    {progress.stage === 'fallback' ? 'High-Demand Failover Activated' : 'Multi-AI Generation in Progress'}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold bg-white/80 border border-slate-200/80 shadow-2xs">
+                    {progress.model}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {progress.message}
+                </p>
+                {progress.fallbackReason && (
+                  <p className="text-[11px] text-amber-800 font-medium">
+                    Auto-recovery bypassed: {progress.fallbackReason}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Submit Button */}
-        <div className="pt-2 flex items-center justify-between">
+        <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="text-xs text-slate-500 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-            <span>AI extracts atomic facts &amp; auto-injects AnkiDroid import directives</span>
+            <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span>Multi-AI engine cascades across models to prevent queue stalls</span>
           </div>
 
           <button
             type="submit"
             disabled={isLoading || (!selectedFile && !textContent.trim())}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Analyzing &amp; Generating Cards...</span>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                <span>Generating with Multi-AI Pool...</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 shrink-0" />
                 <span>Generate Flashcards</span>
               </>
             )}

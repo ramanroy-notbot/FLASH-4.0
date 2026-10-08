@@ -2,6 +2,20 @@ export type CardType = 'basic' | 'cloze' | 'reversible' | 'definition';
 
 export type DelimiterType = 'tab' | 'comma' | 'semicolon' | 'colon';
 
+export type AiModelPreference =
+  | 'auto'
+  | 'gemini-3.8-flash'
+  | 'gemini-3.1-flash-lite'
+  | 'gemini-flash-latest';
+
+export interface GenerationProgress {
+  stage: 'connecting' | 'processing' | 'fallback' | 'retrying' | 'parsing' | 'completed';
+  model: string;
+  message: string;
+  attempt?: number;
+  fallbackReason?: string;
+}
+
 export type MbbsSubject =
   | 'Anatomy'
   | 'Physiology'
@@ -47,6 +61,9 @@ export interface DeckData {
   createdAt: string;
   updatedAt?: string;
   subject?: MbbsSubject;
+  aiModelUsed?: string;
+  websiteName?: string;
+  websiteUrl?: string;
 }
 
 export interface AnalysisRequest {
@@ -60,6 +77,11 @@ export interface AnalysisRequest {
   deckName?: string;
   customInstructions?: string;
   subject?: MbbsSubject;
+  preferredModel?: AiModelPreference;
+  websiteName?: string;
+  websiteUrl?: string;
+  includePromoCard?: boolean;
+  onProgress?: (progress: GenerationProgress) => void;
 }
 
 export interface ImportInstructions {

@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Download, Share2, FileCode, CheckCircle2 } from 'lucide-react';
+import { X, Copy, Check, Download, Share2, FileCode, CheckCircle2, Sparkles } from 'lucide-react';
 import { DelimiterType, Flashcard } from '../types';
-import { DELIMITER_MAP, generateAnkiExportText, downloadAnkiFile, shareToAnkiDroid } from '../utils/ankiExport';
+import { 
+  DELIMITER_MAP, 
+  generateAnkiExportText, 
+  generateRawTsvText,
+  downloadAnkiFile, 
+  shareToAnkiDroid,
+  MANDATORY_PROMO_TAG 
+} from '../utils/ankiExport';
 
 interface RawExportModalProps {
   isOpen: boolean;
@@ -22,6 +29,7 @@ export const RawExportModal: React.FC<RawExportModalProps> = ({
   const [includeHeaders, setIncludeHeaders] = useState<boolean>(true);
   const [includeTags, setIncludeTags] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
+  const [copiedRawTsv, setCopiedRawTsv] = useState<boolean>(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -40,6 +48,13 @@ export const RawExportModal: React.FC<RawExportModalProps> = ({
     navigator.clipboard.writeText(exportText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyRawTsv = () => {
+    const rawTsv = generateRawTsvText(cards);
+    navigator.clipboard.writeText(rawTsv);
+    setCopiedRawTsv(true);
+    setTimeout(() => setCopiedRawTsv(false), 2000);
   };
 
   const handleDownload = () => {
@@ -139,6 +154,22 @@ export const RawExportModal: React.FC<RawExportModalProps> = ({
             </div>
           )}
 
+          {/* TSV Specification & Promo Card Callout */}
+          <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200 text-xs text-blue-900 flex items-start gap-2.5">
+            <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <div className="font-bold flex items-center gap-1.5 flex-wrap">
+                <span>Standard TSV 3-Column Specification Active</span>
+                <span className="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-blue-200 text-blue-800">
+                  [Front] \t [Back] \t [Tags]
+                </span>
+              </div>
+              <p className="text-[11px] text-blue-700 leading-relaxed">
+                Row 1 is the mandatory promotional card, and every single card includes the <code className="bg-blue-100 text-blue-900 px-1 py-0.5 rounded text-[10px] font-mono">#Generated_by_[https://ankidroid-flashcard-generator.ai.studio/fullscreenApplet=true]</code> tag.
+              </p>
+            </div>
+          </div>
+
           {/* Code View */}
           <div className="relative">
             <div className="flex items-center justify-between text-xs text-slate-500 pb-1">
@@ -156,13 +187,24 @@ export const RawExportModal: React.FC<RawExportModalProps> = ({
 
         {/* Footer Actions */}
         <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
-          <button
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors shadow-xs"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? 'Copied to Clipboard' : 'Copy All Text'}</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleCopyRawTsv}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors shadow-2xs cursor-pointer"
+              title="Copy strictly raw TSV: 3 columns, promotional card line 1, no headers"
+            >
+              {copiedRawTsv ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Sparkles className="w-3.5 h-3.5 text-emerald-600" />}
+              <span>{copiedRawTsv ? 'Copied Raw TSV (3 Columns)!' : 'Copy Raw TSV (Exact 3-Cols)'}</span>
+            </button>
+
+            <button
+              onClick={handleCopy}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors shadow-xs"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copied ? 'Copied All Text' : 'Copy Displayed Format'}</span>
+            </button>
+          </div>
 
           <div className="flex items-center gap-2">
             <button

@@ -12,13 +12,18 @@ import { ShareDeckModal } from './components/ShareDeckModal';
 import { AnkiDroidGuideModal } from './components/AnkiDroidGuideModal';
 import { AnkiSimulatorModal } from './components/AnkiSimulatorModal';
 import { RawExportModal } from './components/RawExportModal';
-import { DeckData, AnalysisRequest, MbbsSubject } from './types';
+import { DeckData, AnalysisRequest, MbbsSubject, GenerationProgress, AiModelPreference } from './types';
 import { 
   loadSavedDecks, 
   saveDeckToStorage, 
   deleteDeckFromStorage, 
   updateDeckSubjectInStorage 
 } from './utils/deckStorage';
+import { 
+  generateFlashcardsClient, 
+  isGeminiApiKeyConfigured,
+  AVAILABLE_MODELS 
+} from './services/geminiService';
 import { 
   Sparkles, 
   Smartphone, 
@@ -32,7 +37,9 @@ import {
   GraduationCap,
   Edit3,
   Plus,
-  X
+  X,
+  Zap,
+  RotateCw
 } from 'lucide-react';
 
 export default function App() {
@@ -49,8 +56,9 @@ export default function App() {
   const [activeSubject, setActiveSubject] = useState<string>('All');
   const [targetGenerateSubject, setTargetGenerateSubject] = useState<MbbsSubject>('Pharmacology');
 
-  // Loading & error state
+  // Loading, progress & error state
   const [isLoading, setIsLoading] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Modals state
@@ -79,29 +87,31 @@ export default function App() {
     setActiveView(view);
   };
 
-  // Handle Gemini analysis
-  const handleAnalyze = async (payload: AnalysisRequest) => {
-    setLastPayload(payload);
+  // Handle Gemini analysis with dynamic multi-AI cascade
+  const handleAnalyze = async (payload: AnalysisRequest, overrideModel?: AiModelPreference) => {
+    const finalPayload: AnalysisRequest = {
+      ...payload,
+      preferredModel: overrideModel || payload.preferredModel || 'auto',
+      onProgress: (p) => {
+        setGenerationProgress(p);
+      },
+    };
+
+    setLastPayload(finalPayload);
     setIsLoading(true);
     setError(null);
+    setGenerationProgress({
+      stage: 'connecting',
+      model: finalPayload.preferredModel || 'auto',
+      message: 'Engaging multi-AI generation pool...',
+    });
 
     try {
-      const res = await fetch('/api/analyze-and-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const newDeck: DeckData = await generateFlashcardsClient(finalPayload);
 
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to analyze and generate flashcards');
-      }
-
-      const newDeck: DeckData = data.deck;
       // If subject was requested, ensure it's saved
-      if (payload.subject) {
-        newDeck.subject = payload.subject;
+      if (finalPayload.subject) {
+        newDeck.subject = finalPayload.subject;
       }
 
       // Save to storage
@@ -114,10 +124,11 @@ export default function App() {
     } catch (err: any) {
       console.error('Flashcard generation failed:', err);
       setError(
-        err.message || 'Error communicating with the flashcard generator. Please try again.'
+        err.message || 'Error communicating with the flashcard generator. Please check your network and API key.'
       );
     } finally {
       setIsLoading(false);
+      setGenerationProgress(null);
     }
   };
 
@@ -245,31 +256,47 @@ export default function App() {
           </div>
         </div>
 
-        {/* Error Alert */}
+        {/* Error Alert with Multi-AI Recovery Actions */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start justify-between gap-3 text-xs text-red-800 animate-in fade-in">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-              <div className="space-y-1.5">
-                <div className="font-bold">Generation Failed</div>
+              <div className="space-y-2">
+                <div className="font-bold flex items-center gap-2">
+                  <span>Generation Notice</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                    High-Demand Failover Ready
+                  </span>
+                </div>
                 <div className="text-red-700 leading-relaxed">{error}</div>
                 {lastPayload && (
-                  <button
-                    type="button"
-                    onClick={() => handleAnalyze(lastPayload)}
-                    disabled={isLoading}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Try Again</span>
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleAnalyze(lastPayload, 'auto')}
+                      disabled={isLoading}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                      <span>Retry (Auto-Cascade All AIs)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAnalyze(lastPayload, 'gemini-3.1-flash-lite')}
+                      disabled={isLoading}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <Zap className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Try High-Speed Lane (Gemini 3.1 Flash Lite)</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
             <button
               type="button"
               onClick={() => setError(null)}
-              className="p-1 text-red-400 hover:text-red-700 rounded-lg hover:bg-red-100/60 transition-colors"
+              className="p-1 text-red-400 hover:text-red-700 rounded-lg hover:bg-red-100/60 transition-colors cursor-pointer"
               title="Dismiss alert"
             >
               <X className="w-4 h-4" />
@@ -324,6 +351,7 @@ export default function App() {
               isLoading={isLoading}
               onLoadSample={handleLoadSample}
               initialSubject={targetGenerateSubject}
+              progress={generationProgress}
             />
           </div>
         )}

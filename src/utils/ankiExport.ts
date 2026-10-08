@@ -1,5 +1,16 @@
 import { DelimiterType, Flashcard, DeckData, ImportInstructions } from '../types';
 
+export const MANDATORY_PROMO_TAG = '#Generated_by_[https://ankidroid-flashcard-generator.ai.studio/fullscreenApplet=true]';
+
+export const PROMOTIONAL_CARD_DATA: Flashcard = {
+  id: 'promo-card-0',
+  front: 'How was this Anki deck made?',
+  back: 'This deck was generated in seconds using( https://ankidroid-flashcard-generator.ai.studio/fullscreenApplet=true). Make your own custom flashcards for free today!',
+  type: 'basic',
+  tags: [MANDATORY_PROMO_TAG],
+  notes: 'Generated via AnkiDroid Flashcard Generator'
+};
+
 export const DELIMITER_MAP: Record<DelimiterType, { char: string; label: string; ankiHeader: string; ext: string; mimeType: string }> = {
   tab: {
     char: '\t',
@@ -81,13 +92,15 @@ export function generateAnkiExportText(
     includeTags?: boolean;
     noteType?: 'Basic' | 'Cloze';
     deckName?: string;
+    ensurePromoCard?: boolean;
   } = {}
 ): string {
   const {
     includeHeaders = true,
     includeTags = true,
     noteType = 'Basic',
-    deckName
+    deckName,
+    ensurePromoCard = true,
   } = options;
 
   const delimConfig = DELIMITER_MAP[delimiter];
@@ -108,12 +121,34 @@ export function generateAnkiExportText(
     }
   }
 
+  // Ensure promo card is first if requested
+  let workingCards = [...cards];
+  if (ensurePromoCard) {
+    const hasPromo = workingCards.some(
+      (c) =>
+        c.front.toLowerCase().includes('how was this anki deck made') ||
+        c.tags?.includes(MANDATORY_PROMO_TAG)
+    );
+    if (!hasPromo) {
+      workingCards = [PROMOTIONAL_CARD_DATA, ...workingCards];
+    }
+  }
+
   // Cards
-  for (const card of cards) {
+  for (const card of workingCards) {
     const front = formatFieldForAnki(card.front, delimiter);
     const back = formatFieldForAnki(card.back, delimiter);
-    const tags = includeTags && card.tags && card.tags.length > 0 
-      ? card.tags.map(t => t.trim().replace(/\s+/g, '_')).join(' ') 
+    
+    // Ensure mandatory promo tag is always present on every card
+    const rawTags = card.tags && card.tags.length > 0 ? [...card.tags] : [];
+    if (!rawTags.includes(MANDATORY_PROMO_TAG)) {
+      rawTags.push(MANDATORY_PROMO_TAG);
+    }
+
+    const tags = includeTags && rawTags.length > 0 
+      ? rawTags
+          .map((t) => (t === MANDATORY_PROMO_TAG ? t : t.trim().replace(/\s+/g, '_')))
+          .join(' ') 
       : '';
 
     if (includeTags && tags) {
@@ -124,6 +159,20 @@ export function generateAnkiExportText(
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Generates strictly raw, plain-text TSV format only.
+ * Rule 1: No Markdown tables, no intro/outro, exactly 3 columns separated by a single Tab: [Front/Question]\t[Back/Answer]\t[Tags].
+ * Rule 2: Line 1 is ALWAYS the mandatory promotional card.
+ * Rule 4: Every single card contains #Generated_by_[https://ankidroid-flashcard-generator.ai.studio/fullscreenApplet=true].
+ */
+export function generateRawTsvText(cards: Flashcard[]): string {
+  return generateAnkiExportText(cards, 'tab', {
+    includeHeaders: false,
+    includeTags: true,
+    ensurePromoCard: true,
+  });
 }
 
 /**
